@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}频点测齐核查 · 隔声试验数据交付复核{% endblock %}
+{% block content %}
+<h2>频点测齐核查</h2>
+<p class="muted">
+  主库：{{ main_name }} ｜ WAL：{{ wal_name }} ｜
+  <a href="/check">重新上传</a> ｜ <a href="/">返回交付复核</a>
+</p>
+{% if error %}<p class="err">核查失败：{{ error }}</p>{% endif %}
+
+<form method="post" action="/check/run">
+  <fieldset>
+    <legend>核查条件</legend>
+    <p>
+      <label>试验：
+        <input type="number" name="test_id" min="1" value="{{ test_id or '' }}"
+               style="width:7rem" required>
+        <span class="muted">（主库中的试验：{% for t in tests %}#{{ t.id }}「{{ t.name }}」{% if not loop.last %}、{% endif %}{% else %}（无）{% endfor %}；
+          若试验在 WAL 提交中才创建，可直接填编号）</span>
+      </label>
+    </p>
+    <p>
+      <label>必测频点（Hz，逗号或空格分隔）：
+        <input type="text" name="frequencies" value="{{ frequencies_text }}"
+               placeholder="100, 125, 160" style="width:24rem" required>
+      </label>
+    </p>
+    <p><button type="submit" class="primary">开始逐版核查</button></p>
+  </fieldset>
+</form>
+
+{% if report %}
+{% set c = report.first_complete %}
+<h3>核查结果</h3>
+<p class="muted">
+  试验 #{{ report.test_id }}「{{ report.test_name }}」 ｜
+  必测频点：{{ report.frequencies|join("、") }} Hz ｜
+  有效提交（第 1…{{ report.total_versions }} 版）共 {{ report.total_versions }} 笔
+</p>
+{% if not report.test_in_main %}
+<p class="warn">该试验在第 0 版（主库）中不存在，可能是后续提交才创建；第 0 版按全部频点未测计。</p>
+{% endif %}
+{% if report.wal_note %}
+<p class="warn">WAL 尾部：{{ report.wal_note }}（共忽略 {{ report.ignored_bytes }} 字节）</p>
+{% endif %}
+
+{% if c %}
+<p class="ok">
+  {% if c.version == 0 %}
+  主库第 0 版即已测齐。
+  {% else %}
+  最早在<b>第 {{ c.version }} 版</b>（第 {{ c.version }} 笔有效提交）测齐。
+  {% endif %}
+</p>
+{% if c.version == 0 %}
+<p class="muted">第 0 版即主库本身，尚未有任何提交；上表为该版本中各频点对应的读数编号。</p>
+{% endif %}
+<table>
+  <tr><th>必测频点 (Hz)</th><th>第 {{ c.version }} 版读数编号</th></tr>
+  {% for f in report.frequencies %}
+  <tr><td>{{ f }}</td><td>{{ c.readings[f] }}</td></tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="err">
+  截至第 {{ report.total_versions }} 版（最后一版）仍未测齐。
+</p>
+{% if report.last_state %}
+<p>最后一版缺少的频点：<b>{{ report.last_state.missing|join("、") }}</b> Hz</p>
+{% if report.last_state.readings %}
+<table>
+  <tr><th>已测频点 (Hz)</th><th>最后一版读数编号</th></tr>
+  {% for f in report.frequencies if f in report.last_state.readings %}
+  <tr><td>{{ f }}</td><td>{{ report.last_state.readings[f] }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+{% endif %}
+{% endif %}
+{% endif %}
+{% endblock %}

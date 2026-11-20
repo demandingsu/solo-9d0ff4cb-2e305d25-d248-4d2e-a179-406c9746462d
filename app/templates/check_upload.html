@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}频点测齐核查 · 隔声试验数据交付复核{% endblock %}
+{% block content %}
+<h2>频点测齐核查 — 上传主库与 WAL</h2>
+<p class="muted">
+  核查某试验的必测频点最早在哪一笔提交时测齐。请上传<b>采集开始时</b>的
+  SQLite 主库，以及<b>同一轮、尚未回填（checkpoint）</b>的 WAL（<code>*-wal</code>）文件。
+  主库为第 0 版，WAL 中每一笔完整且校验通过的提交算一版；未提交的数据与截断的日志尾部会被忽略。
+</p>
+{% if error %}<p class="err">上传失败：{{ error }}</p>{% endif %}
+<form method="post" action="/check/upload" enctype="multipart/form-data">
+  <p><label>主库：<input type="file" name="main_db" accept=".db,.sqlite,.sqlite3" required></label></p>
+  <p><label>同轮 WAL：<input type="file" name="wal" accept=".db-wal,.sqlite-wal,.sqlite3-wal,*" required></label></p>
+  <p class="muted">上传时也可直接填写（留空则上传后再选）：</p>
+  <p><label>试验：<input type="number" name="test_id" min="1" style="width:7rem"></label></p>
+  <p><label>必测频点（Hz，逗号或空格分隔）：<input type="text" name="frequencies"
+        placeholder="100, 125, 160, 200, 250" style="width:22rem"></label></p>
+  <p><button type="submit" class="primary">上传并核查</button></p>
+</form>
+<p class="muted"><a href="/">返回单文件上传（交付复核）</a></p>
+<p class="muted">主库与 WAL 仅需包含：<code>tests(id, name)</code>、
+  <code>readings(id, test_id, frequency_hz, level_db)</code>（其余列任意）。
+  缺少分析所需列时会在此提示原因。</p>
+{% endblock %}
